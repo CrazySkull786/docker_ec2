@@ -1,21 +1,42 @@
 // server.js
-// Express + MySQL CRUD API for the `products` table (with CORS enabled)
+// Express + MySQL CRUD API for the `products` table (with CORS + rate limiting)
 //
 // Setup:
 //   npm init -y
-//   npm install express mysql2 cors
+//   npm install express mysql2 cors express-rate-limit
 //   node server.js
 
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2/promise");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ---------- Rate Limiting ----------
+// Global limiter – protects all routes
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,                 // max 100 requests per IP per window
+  standardHeaders: true,    // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false,     // Disable the `X-RateLimit-*` headers
+  message: { error: "Too many requests, please try again later." },
+});
+
+// Stricter limiter for write operations (POST / PUT / DELETE)
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,                  // max 30 write requests per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many write requests, please try again later." },
+});
+
 // ---------- Middleware ----------
 app.use(cors()); // allow requests from any origin (restrict this in production)
 app.use(express.json());
+app.use(globalLimiter); // apply global rate limiting to every route
 
 // ---------- MySQL connection pool ----------
 const pool = mysql.createPool({
@@ -54,7 +75,7 @@ function validateProduct(body) {
 // ---------- Routes ----------
 
 // CREATE  -> POST /products
-app.post("/products", async (req, res) => {
+app.post("/products", writeLimiter, async (req, res) => {
   const error = validateProduct(req.body);
   if (error) return res.status(400).json({ error });
 
@@ -97,7 +118,7 @@ app.get("/products/:id", async (req, res) => {
 });
 
 // UPDATE  -> PUT /products/:id
-app.put("/products/:id", async (req, res) => {
+app.put("/products/:id", writeLimiter, async (req, res) => {
   const error = validateProduct(req.body);
   if (error) return res.status(400).json({ error });
 
@@ -116,7 +137,7 @@ app.put("/products/:id", async (req, res) => {
 });
 
 // DELETE  -> DELETE /products/:id
-app.delete("/products/:id", async (req, res) => {
+app.delete("/products/:id", writeLimiter, async (req, res) => {
   try {
     const [result] = await pool.execute("DELETE FROM products WHERE product_id = ?", [
       req.params.id,
