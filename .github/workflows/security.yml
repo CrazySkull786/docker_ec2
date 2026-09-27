@@ -30,21 +30,15 @@ jobs:
       contents: read
       actions: read
 
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ['javascript']   # ← Change this according to your project
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.language }}
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+          languages: javascript
+          queries: security-extended
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
