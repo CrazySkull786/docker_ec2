@@ -93,7 +93,7 @@ app.post("/products", writeLimiter, async (req, res) => {
 });
 
 // READ ALL  -> GET /products
-app.get("/products", async (req, res) => {
+app.get("/products", globalLimiter, async (req, res) => {
   try {
     const [rows] = await pool.execute("SELECT * FROM products ORDER BY product_id");
     res.json(rows);
@@ -104,7 +104,7 @@ app.get("/products", async (req, res) => {
 });
 
 // READ ONE  -> GET /products/:id
-app.get("/products/:id", async (req, res) => {
+app.get("/products/:id", globalLimiter, async (req, res) => {
   try {
     const [rows] = await pool.execute("SELECT * FROM products WHERE product_id = ?", [
       req.params.id,
